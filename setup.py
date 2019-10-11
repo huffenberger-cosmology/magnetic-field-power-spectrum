@@ -5,7 +5,7 @@ import os
 numpy_inc = os.path.join(get_python_lib(plat_specific=1), 'numpy/core/include')
 
 module1 =  Extension('Bpowspec',
-                     sources = ['code/Bpowspec.c','code/Bpowerspec_mod.c'],
+                     sources = ['code/Bpowspec.c','code/Bpowspec_mod.c'],
                      include_dirs = [numpy_inc,'code'],
                      libraries=['gsl','gslcblas','fftw3'],
                      library_dirs = ["lib"],
