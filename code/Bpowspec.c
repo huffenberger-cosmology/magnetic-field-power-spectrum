@@ -2,6 +2,8 @@
 #include <stdlib.h>
 #include <lsstools.h>
 #include <math.h>
+#include <Bpowspec.h>
+
 
 int lsstools_mapsize(int N[3]) {
   return(N[0]*N[1]*N[2]);
@@ -27,14 +29,15 @@ void lsstools_Delta2k(int N[3],double Delta[3], double Deltak[3]) {
 }  
 
 
-void build_projector(double P[9], double khat[3]){
+void Bpowspec_build_projector(double P[9], double khat[3]){
 
   int i,j;
 
   for (j=0;j<3;j++)
     for (i=0;i<3;i++) {
       P[j*3+i] = (i==j) ? 1 : 0;
-      P[j*3+1] -= khat[i]*khat[j];
+      P[j*3+i] -= khat[i]*khat[j];
+      //printf("ij %d %d khat[i] khat[j] %f %f\n",i,j,khat[i],khat[j]);
     }
 
 }
@@ -74,14 +77,27 @@ void Bpowspec_Pk2harm(gsl_spline *Pk, fftw_complex *harmx, fftw_complex *harmy, 
 	}
 	k = sqrt(k);
 	
-	for (idim = 0;idim < 3;idim++) {
-	  khat[idim] = kvec[idim]/k;
-	}
+	if (k>0.0) {
+	  
+	  for (idim = 0;idim < 3;idim++) {
+	    khat[idim] = kvec[idim]/k;
+	  }
+	  
+	  Bpowspec_build_projector(Proj,khat);
+	} else {
 
-	build_projector(Proj,khat);
+	  for (idim = 0;idim < 9;idim++) {
+	    Proj[idim] = 0.0;
+	  }
+	  for (idim = 0;idim < 3;idim++) {
+	    Proj[idim*3+idim] = 1.0;
+	  }
+	  
+	}
 	
 	//	printf("k = %e\n",k);
 
+	
 	normpower = ((k<=0.0)||(k > kmax)) ? 0.0 : gsl_spline_eval (Pk, k, acc)*norm;
 	normpower = (normpower < 0.0) ? 0.0 : normpower;
 
@@ -101,6 +117,17 @@ void Bpowspec_Pk2harm(gsl_spline *Pk, fftw_complex *harmx, fftw_complex *harmy, 
 	harmy[p] = tmpBharm[1];
 	harmx[p] = tmpBharm[2];
 	
+
+	if ((iz==0)&&(iy==0)&&(ix==0)) {
+	  printf("(%d %d %d)\n k=%f normpower=%f\n",iz,iy,ix,k,normpower);
+	  printf("tmpharm[0] = (%f %f)\n",creal(tmpharm[0]),cimag(tmpharm[0]));
+	  printf("tmpharm[1] = (%f %f)\n",creal(tmpharm[1]),cimag(tmpharm[1]));
+	  printf("tmpharm[2] = (%f %f)\n",creal(tmpharm[2]),cimag(tmpharm[2]));
+	  printf("tmpBharm[0] = (%f %f)\n",creal(tmpBharm[0]),cimag(tmpBharm[0]));
+	  printf("tmpBharm[1] = (%f %f)\n",creal(tmpBharm[1]),cimag(tmpBharm[1]));
+	  printf("tmpBharm[2] = (%f %f)\n",creal(tmpBharm[2]),cimag(tmpBharm[2]));
+	}
+
 	
       }
     }
