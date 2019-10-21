@@ -114,6 +114,43 @@ static PyObject *Pk2harm(PyObject *self, PyObject *args) {
   return(harmtuple);
 }
 
+
+static PyObject *kvecs(PyObject *self, PyObject *args) {
+
+  PyObject *N_array=NULL;
+  PyObject *Deltak_array=NULL;
+  
+  if (!PyArg_ParseTuple(args, "OO", &N_array, &Deltak_array)) 
+    return NULL;
+
+  double *Deltak = PyArray_DATA(Deltak_array);
+  int *N = PyArray_DATA(N_array);
+
+  printf("N = %d %d %d\n",N[0],N[1],N[2]);
+
+  npy_intp Nharm[3] = {N[0],N[1],N[2]/2+1};
+  int harmsize = lsstools_harmsize(N);
+  double *kx = calloc(harmsize,sizeof(fftw_complex));
+  double *ky = calloc(harmsize,sizeof(fftw_complex));
+  double *kz = calloc(harmsize,sizeof(fftw_complex));
+
+  Bpowspec_kvecs(kx, ky, kz, N, Deltak);
+
+  PyObject *arrx = PyArray_SimpleNewFromData(3, Nharm, NPY_DOUBLE, kx);
+  PyObject *arry = PyArray_SimpleNewFromData(3, Nharm, NPY_DOUBLE, ky);
+  PyObject *arrz = PyArray_SimpleNewFromData(3, Nharm, NPY_DOUBLE, kz);
+
+  PyArray_ENABLEFLAGS((PyArrayObject *)arrx, NPY_OWNDATA);
+  PyArray_ENABLEFLAGS((PyArrayObject *)arry, NPY_OWNDATA);
+  PyArray_ENABLEFLAGS((PyArrayObject *)arrz, NPY_OWNDATA);
+
+  PyObject *kvecstuple = PyTuple_Pack(3,arrx,arry,arrz);
+  
+  return(kvecstuple);
+}
+
+
+
 static PyObject *harm2map(PyObject *self, PyObject *args) {
 
   PyObject *harm_array=NULL;
@@ -152,7 +189,8 @@ static PyMethodDef BpowspecMethods[] = {
   {"build_projector", build_projector, METH_VARARGS,"build_projector(double khat[3])"},
   {"Pk2harm",  Pk2harm, METH_VARARGS,"Pk2harm(k[], Pk[], N[3] (int32), kmax, Deltak, random seed (int))"},
   {"harm2map", harm2map, METH_VARARGS,"harm2map(harm[] (complex), Delta[3])"},
-  {NULL, NULL, 0, NULL}        /* Sentinel */
+  {"kvecs", kvecs, METH_VARARGS,"kvecs(N[3] (int32), Deltak)"},
+ {NULL, NULL, 0, NULL}        /* Sentinel */
 };
 
 static struct PyModuleDef Bpowspec_module = {

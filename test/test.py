@@ -30,8 +30,8 @@ print(P)
 
 
 kmax = amax(N*Deltak)
-k = linspace(0,kmax, 100);
-Pk = exp(-k**2/2/(kmax/10)**2)
+k = linspace(0,kmax, 500);
+Pk = exp(-k**2/2/(kmax/40)**2)
 
 
 plot(k,Pk)
@@ -40,7 +40,20 @@ ylabel('P(k)')
 
 seed = 1233
 
+
+kx,ky,kz = Bpowspec.kvecs(N,Deltak)
+
 Bharmx,Bharmy,Bharmz = Bpowspec.Pk2harm(k,Pk,N,kmax,Deltak, seed)
+
+DivBharm = kx*Bharmx + ky*Bharmy + kz*Bharmz
+
+
+print("==============\nDeltak * max(norm(DivBharm)) = %e" % (Deltak[0] * amax(norm(DivBharm))))
+print("rms(norm(Bharm)) = %f\n==============" % std(sqrt(real(
+    Bharmx*conj(Bharmx) +
+    Bharmy*conj(Bharmy) +
+    Bharmz*conj(Bharmz) ))))
+
 
 
 Bx = Bpowspec.harm2map(Bharmx,Delta)
@@ -50,6 +63,5 @@ Bz = Bpowspec.harm2map(Bharmz,Delta)
 
 figure()
 imshow(Bz[0])
-
-
 show()
+

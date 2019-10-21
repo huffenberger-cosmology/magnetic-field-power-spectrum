@@ -139,6 +139,45 @@ void Bpowspec_Pk2harm(gsl_spline *Pk, fftw_complex *harmx, fftw_complex *harmy, 
   gsl_interp_accel_free(acc);
 }
 
+void Bpowspec_kvecs(double *kx, double *ky, double *kz, int N[3], double Deltak[3]) {
+  // Return the kx,ky,kz values for every point in the box
+  //
+  // N[] = Nz, Ny, Nx
+  // Note that vectors ik and kvec also follow the zyx order.
+
+  
+  int ix,iy,iz,p,ik[3],idim;
+
+  double kvec[3];
+  double k;
+  int Nhalfx = N[2]/2+1;
+
+  for (iz=0;iz<N[0];iz++) {
+    for (iy=0;iy<N[1];iy++) {
+      for (ix=0;ix<Nhalfx;ix++) {
+	p = iz*N[1]*Nhalfx+iy*Nhalfx+ix;
+	
+	ik[0] = (iz<N[0]/2) ? iz : iz-N[0];
+	ik[1] = (iy<N[1]/2) ? iy : iy-N[1];
+	ik[2] = ix;
+	
+	k = 0;
+	for (idim = 0;idim < 3;idim++) {
+	  kvec[idim] = Deltak[idim]*ik[idim];
+	  k += kvec[idim]*kvec[idim];
+	}
+	k = sqrt(k);
+	
+	// Load into outputs, note the order zyx
+	kz[p] = kvec[0];
+	ky[p] = kvec[1];
+	kx[p] = kvec[2];
+	
+      }
+    }
+  }
+}
+
 
 void lsstools_harm2map(fftw_complex *harm, double *map, int N[3], double Delta[3]) {
   int Nharm = lsstools_harmsize(N);
