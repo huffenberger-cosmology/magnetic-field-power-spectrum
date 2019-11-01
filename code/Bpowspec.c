@@ -139,6 +139,97 @@ void Bpowspec_Pk2harm(gsl_spline *Pk, fftw_complex *harmx, fftw_complex *harmy, 
   gsl_interp_accel_free(acc);
 }
 
+
+void Bpowspec_harm2Pk(fftw_complex *harmx, fftw_complex *harmy, fftw_complex *harmz, gsl_histogram *Pkobs, int N[3], double Deltak[3]) {
+  // Based on fourier space coefficients for c2r transform to a volume of size N[3], return the binned power spectrum.
+
+  // N[] = Nz, Ny, Nx
+  gsl_histogram_reset(Pkobs);
+  gsl_histogram *count = gsl_histogram_clone(Pkobs);
+
+  int ix,iy,iz,p,ik[3],idim, jdim;
+  gsl_interp_accel *acc = gsl_interp_accel_alloc();
+
+  double kvec[3],khat[3],Proj[9];
+  double TrProj;
+  fftw_complex tmpBharm[3];
+  
+  double k,power;
+  int Nhalfx = N[2]/2+1;
+  
+  for (iz=0;iz<N[0];iz++) {
+    for (iy=0;iy<N[1];iy++) {
+      for (ix=0;ix<Nhalfx;ix++) {
+	p = iz*N[1]*Nhalfx+iy*Nhalfx+ix;
+	
+	ik[0] = (iz<N[0]/2) ? iz : iz-N[0];
+	ik[1] = (iy<N[1]/2) ? iy : iy-N[1];
+	ik[2] = ix;
+	
+	k = 0;
+	for (idim = 0;idim < 3;idim++) {
+	  kvec[idim] = Deltak[idim]*ik[idim];
+	  k += kvec[idim]*kvec[idim];
+	}
+	k = sqrt(k);
+	
+	if (k>0.0) {
+	  
+	  for (idim = 0;idim < 3;idim++) {
+	    khat[idim] = kvec[idim]/k;
+	  }
+	  
+	  Bpowspec_build_projector(Proj,khat);
+	} else {
+	  
+	  for (idim = 0;idim < 9;idim++) {
+	    Proj[idim] = 0.0;
+	  }
+	  for (idim = 0;idim < 3;idim++) {
+	    Proj[idim*3+idim] = 1.0;
+	  }
+	}
+
+	TrProj = 0.;
+	for (idim = 0;idim < 3;idim++) {
+	  TrProj += Proj[idim*3 + idim];
+	}
+	
+	power = 0.0;
+	tmpBharm[0] = harmz[p];
+	tmpBharm[1] = harmy[p];
+	tmpBharm[2] = harmx[p];
+
+	for (jdim = 0;jdim < 3;jdim++) {
+	  for (idim = 0;idim < 3;idim++) {
+	    power += Proj[jdim*3+idim] * tmpBharm[idim] * conj(tmpBharm[jdim]);
+	  }
+	}
+	power /= TrProj;
+	
+	gsl_histogram_accumulate(Pkobs,k,power);
+	gsl_histogram_increment(count,k);  // count how many pixels contribute to the power bin
+  
+      }
+    }
+  }
+  
+  double Dvolk = Deltak[0]*Deltak[1]*Deltak[2];
+  gsl_histogram_scale(Pkobs,Dvolk/pow(2.0*M_PI,3));
+
+  size_t i;
+  for ( i=0; i < count->n; i++) {
+    if ( count->bin[i] > 0 ) {
+      Pkobs->bin[i] /= count->bin[i];
+    }
+  }
+
+
+  gsl_histogram_free(count);
+  gsl_interp_accel_free(acc);
+}
+
+
 void Bpowspec_kvecs(double *kx, double *ky, double *kz, int N[3], double Deltak[3]) {
   // Return the kx,ky,kz values for every point in the box
   //
