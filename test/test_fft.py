@@ -9,7 +9,7 @@ close('all')
 
 size3d = array([1.,1.,1.])
 
-N = array([512,512,512],dtype=int32)
+N = array([256,256,256],dtype=int32)
 
 Delta = size3d/N
 

@@ -316,7 +316,8 @@ void lsstools_Pk2harm(gsl_spline *Pk, fftw_complex *harm, int N[3], double kmax,
   }
 
 
-  //ix = 0;
+  // Enforce harm( -k ) = harm(k)^* symmetries to result in a real transform
+  
   for(ix=0;ix<Nhalfx;ix+=N[2]/2) {
 
     int negix = (N[2] - ix) % N[2];  // Even Nx
@@ -348,64 +349,6 @@ void lsstools_Pk2harm(gsl_spline *Pk, fftw_complex *harm, int N[3], double kmax,
       }
     }
   }
-  
-  /*
-  harm[0] = sqrt(2)*creal(harm[0]);
-  //  harm[1*Nhalfx+3] = 1+ M_PI*I;
-
-  ix = 0;
-  iz = 0;
-  
-  for (iy=1;iy<N[1]/2;iy++) {
-    
-    // note these equations don't include iz=0 or ix=0
-    p = iy*Nhalfx;
-    int pneg =  (N[1]-iy)*Nhalfx;
-    
-    if (iz==0) {
-	printf("iz = %d, iy = %d, p = %d, N[1]-iy = %d, pneg = %d\n",iz,iy,p,N[1]-iy,pneg);
-    }
-    
-    harm[pneg] = conj(harm[p]);
-    
-  }
-
-  printf("======================\n");
-  
-  /*
-  ix = N[2]/2;
-  for (iy=1;iy<N[1]/2;iy++) {
-    
-    // note these equations don't include iz=0 or ix=0
-    p = iy*Nhalfx + ix;
-    int pneg =  (N[1]-iy)*Nhalfx + ix;
-    
-    if (iz==0) {
-      printf("iz = %d, iy = %d, ix = %d, p = %d, N[1]-iy = %d, pneg = %d\n",iz,iy,ix,p,N[1]-iy,pneg);
-    }
-    
-    harm[pneg] = conj(harm[p]);
-    
-  }
-  */
-  
-  /*
-  for (iz=1;iz<N[0];iz++) {
-    for (iy=1;iy<N[1]/2;iy++) {
-
-      // note these equations don't include ix=0
-      p = iz*N[1]*Nhalfx+iy*Nhalfx;
-      int pneg =  (N[0]-iz)*N[1]*Nhalfx+(N[1]-iy)*Nhalfx;
-
-      if (iz==0) {
-	printf("iz = %d, iy = %d, p = %d, N[1]-iy = %d, pneg = %d\n",iz,iy,p,N[1]-iy,pneg);
-      }
-      
-      harm[pneg] = conj(harm[p]);
- 
-    }
-  }
-  */   
   
 
   gsl_interp_accel_free(acc);
