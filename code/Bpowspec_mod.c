@@ -114,6 +114,113 @@ static PyObject *Pk2harm(PyObject *self, PyObject *args) {
   return(harmtuple);
 }
 
+static PyObject *harm2Pk(PyObject *self, PyObject *args) {
+
+  PyObject *harmx_array=NULL;
+  PyObject *harmy_array=NULL;
+  PyObject *harmz_array=NULL;
+  PyObject *Deltak_array=NULL;
+  PyObject *k_array=NULL;
+
+
+  if (!PyArg_ParseTuple(args, "OOOOO", &harmx_array, &harmy_array, &harmz_array, &Deltak_array, &k_array)) 
+    return NULL;
+
+  fftw_complex *harmx = PyArray_DATA(harmx_array);
+  fftw_complex *harmy = PyArray_DATA(harmy_array);
+  fftw_complex *harmz = PyArray_DATA(harmz_array);
+  double *Deltak = PyArray_DATA(Deltak_array);
+  double *k = PyArray_DATA(k_array);
+
+
+  npy_intp *npyNharm = PyArray_DIMS(harmx_array);
+  npy_intp *kbinsize = PyArray_DIMS(k_array);
+  
+  int nkbin = kbinsize[0] - 1;
+  int Nharm[3] = {npyNharm[0],npyNharm[1],npyNharm[2]};
+  int N[3] = {Nharm[0],Nharm[1],(Nharm[2]-1)*2};
+
+
+  // printf("about to allocate.\n");
+
+  gsl_histogram *Pkobs = gsl_histogram_alloc (nkbin);
+
+  // printf("about to set ranges %d cl->n %d.\n", nlbin, cl->n);
+
+
+  gsl_histogram_set_ranges (Pkobs, k, nkbin+1);
+
+  // printf("about to evaluate cl.\n");
+  Bpowspec_harm2Pk(harmx,harmy,harmz,Pkobs,N,Deltak);
+ 
+  double *Pkout = calloc(nkbin,sizeof(double));
+
+
+  bcopy(Pkobs->bin, Pkout, nkbin*sizeof(double));
+  npy_intp npykbin[1] = {nkbin};
+
+
+  PyObject *arr = PyArray_SimpleNewFromData(1,npykbin, NPY_DOUBLE, Pkout);
+ 
+  PyArray_ENABLEFLAGS((PyArrayObject *)arr, NPY_OWNDATA);
+ 
+  gsl_histogram_free (Pkobs);
+
+  return(arr);
+}
+
+
+static PyObject *scalarPk2harm(PyObject *self, PyObject *args) {
+
+  PyObject *k_array=NULL;
+  PyObject *Pk_array=NULL;
+  PyObject *N_array=NULL;
+  PyObject *Deltak_array=NULL;
+  double kmax;
+  int seed;
+  
+  
+  if (!PyArg_ParseTuple(args, "OOOdOi", &k_array, &Pk_array, &N_array, &kmax, &Deltak_array, &seed)) 
+    return NULL;
+
+  double *k = PyArray_DATA(k_array);
+  double *Pk = PyArray_DATA(Pk_array);
+  
+  npy_intp *Nkptr = PyArray_DIMS(k_array);
+  int Nk = (int) *Nkptr;
+  double *Deltak = PyArray_DATA(Deltak_array);
+
+  gsl_spline *Pkspline = gsl_spline_alloc (gsl_interp_linear, Nk);
+
+  
+  gsl_spline_init (Pkspline, k, Pk, Nk);
+
+  int *N = PyArray_DATA(N_array);
+
+  printf("N = %d %d %d\n",N[0],N[1],N[2]);
+
+  npy_intp Nharm[3] = {N[0],N[1],N[2]/2+1};
+  int harmsize = lsstools_harmsize(N);
+  fftw_complex *harm = calloc(harmsize,sizeof(fftw_complex));
+
+  gsl_rng *r = gsl_rng_alloc(gsl_rng_taus);
+  gsl_rng_set (r, seed);
+  
+  lsstools_Pk2harm(Pkspline, harm, N, kmax, Deltak, r);
+
+  gsl_rng_free(r); 
+
+  PyObject *arr = PyArray_SimpleNewFromData(3, Nharm, NPY_CDOUBLE, harm);
+
+  PyArray_ENABLEFLAGS((PyArrayObject *)arr, NPY_OWNDATA);
+
+  gsl_spline_free(Pkspline);
+
+  return(arr);
+}
+
+
+
 
 static PyObject *kvecs(PyObject *self, PyObject *args) {
 
@@ -182,13 +289,44 @@ static PyObject *harm2map(PyObject *self, PyObject *args) {
 
 }
 
+static PyObject *map2harm(PyObject *self, PyObject *args) {
+
+  PyObject *map_array=NULL;
+  PyObject *Delta_array=NULL;
+
+  if (!PyArg_ParseTuple(args, "OO", &map_array, &Delta_array)) 
+    return NULL;
+
+  double *map = PyArray_DATA(map_array);
+
+  npy_intp *npyN = PyArray_DIMS(map_array);
+  int N[3] = {npyN[0],npyN[1],npyN[2]};
+
+  double *Delta = PyArray_DATA(Delta_array);
+
+  npy_intp Nharm[3] = {N[0],N[1],N[2]/2+1};
+  fftw_complex *harm = calloc(Nharm[0]*Nharm[1]*Nharm[2],sizeof(fftw_complex));
+  
+  lsstools_map2harm(map,harm,N,Delta);
+
+  PyObject *arr = PyArray_SimpleNewFromData(3, Nharm, NPY_CDOUBLE, harm);
+
+  PyArray_ENABLEFLAGS((PyArrayObject *)arr, NPY_OWNDATA);
+
+  
+  return(arr);
+}
 
 
 static PyMethodDef BpowspecMethods[] = {
   {"Delta2k",  Delta2k, METH_VARARGS,"Delta2k(double Delta[3], int N[3])"},
   {"build_projector", build_projector, METH_VARARGS,"build_projector(double khat[3])"},
   {"Pk2harm",  Pk2harm, METH_VARARGS,"Pk2harm(k[], Pk[], N[3] (int32), kmax, Deltak, random seed (int))"},
+  {"scalarPk2harm",  scalarPk2harm, METH_VARARGS,"scalarPk2harm(k[], Pk[], N[3] (int32), kmax, Deltak, random seed (int))"},
+  {"harm2Pk",  harm2Pk, METH_VARARGS,"harm2Pk(harmx,harmy,harmz (complex), Deltak[2], kbin_edges[] (double))"},
+  //  {"scalarharm2Pk",  scalarharm2Pk, METH_VARARGS,"scalarharm2Pk(harmx (complex), Deltak[2], kbin_edges[] (double))"},
   {"harm2map", harm2map, METH_VARARGS,"harm2map(harm[] (complex), Delta[3])"},
+  {"map2harm", map2harm, METH_VARARGS,"map2harm(map[] (double), Delta[3])"},
   {"kvecs", kvecs, METH_VARARGS,"kvecs(N[3] (int32), Deltak)"},
  {NULL, NULL, 0, NULL}        /* Sentinel */
 };
