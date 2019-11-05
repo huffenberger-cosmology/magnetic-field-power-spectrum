@@ -1,0 +1,150 @@
+\documentclass{article}
+
+\usepackage{fullpage}
+\usepackage{natbib}
+\usepackage{aas_macros}
+%\usepackage{hyperref}
+
+\begin{document}
+\title{Magnetic Field Power Spectrum}
+\author{Kevin Huffenberger}
+\date{31 October 2019}
+\maketitle
+ 
+\section{Basic definitions}
+
+Following \citet{2002PhRvD..65l3004M}, the power spectrum of a homogeneous isotropic magnetic field is
+\begin{equation}
+  \langle B_i(\mathbf{k})  B_j(\mathbf{k}')^* \rangle = (2\pi)^3 P_{ij}(\mathbf{k}) P(k) \delta(\mathbf{k - k}')
+  \label{eqn:psdef}
+ \end{equation}
+ and the projection operator to the transverse plane is
+ \begin{equation}
+    P_{ij}(\mathbf{k})  = \delta_{ij} - \hat k_i \hat k_j
+ \end{equation}
+ and the $\hat k_i$ are the components of the unit vector in the longitudinal ($\mathbf{k}$) direction.  The projection operator is by definition symmetric, and has some useful properties.  First, it projects every longitudinal vector to zero,
+ \begin{equation}
+   P_{ij} \hat k_j =  \hat k_i P_{ij} = 0,
+   \label{eqn:transproj}
+ \end{equation}
+ and second, it is idempotent, meaning its own square,
+ \begin{equation}
+   P_{ij}P_{jk} = P_{ik}.
+   \label{eqn:idemproj}
+ \end{equation}
+  The projection operator is the same for opposite wavenumbers:
+ \begin{equation}
+   P_{ij}(-\mathbf{k}) = \delta_{ij} - (-k_i)(-k_j) = P_{ij}(\mathbf{k})
+ \end{equation}
+
+ 
+ If there is a random vector field with specified power spectrum for each independent component:
+ \begin{equation}
+   \langle X_i(\mathbf{k}) X_j(\mathbf{k}') \rangle = (2\pi)^3 P(k) \delta_{ij}\delta(\mathbf{k - k'})
+ \end{equation}
+ Let the magnetic field be 
+ \begin{equation}
+   B_i(\mathbf{k}) = P_{ij}(\mathbf{k}) X_j(\mathbf{k})
+ \end{equation}
+ and then the power spectrum of the magnetic modes is
+ \begin{eqnarray}
+   \langle B_i(\mathbf{k})  B_j(\mathbf{k}')^* \rangle &=&  P_{ij}(\mathbf{k}) \langle X_j(\mathbf{k}) X_l(\mathbf{k'}) \rangle P_{ml}(\mathbf{k'}) \\ \nonumber
+   &=& (2\pi)^3 P_{ij}(\mathbf{k}) P_{ml}(\mathbf{k'}) P(k) \delta_{jl} \delta(\mathbf{k - k'})\\ \nonumber
+   &=& (2\pi)^3 P_{ij}(\mathbf{k}) P(k) \delta(\mathbf{k - k}')
+ \end{eqnarray}
+\section{FFT conventions}
+ 
+ The standard Fourier transform convention is approximated by a Riemann sum:
+ \begin{equation}
+   B_i(\mathbf{k}) = \int d^3x \exp(-i \mathbf{k \cdot x}) B_i(\mathbf{x}) = \Delta_{\rm vol} \sum_{\rm{index}\ \mathbf{n}} \exp(-2\pi i \mathbf{p}\cdot (\mathbf{n/N}) ) B_i(\mathbf{x_n})
+ \end{equation}
+ The expression following the sum is a standard 3-dimensional FFT, and
+ \begin{equation}
+   \Delta_i = L_i/N_i
+ \end{equation}
+ is the pixel size in terms of the box size and number of pixels, with $\Delta_{\rm vol} = \prod_i \Delta_i$ is the pixel volume.  The symbol $(\mathbf{n/N})$ is shorthand for the vector with component $n_i/N_i$.
+The position in real space is 
+ \begin{equation}
+   x_n,i = \Delta_i n_i 
+ \end{equation}
+ while the position in Fourier space is
+ \begin{equation}
+   k_{p,i} = p_i \Delta_{k,i} = 2\pi p_i/N_i \Delta_i
+ \end{equation}
+ where
+ \begin{equation}
+   \Delta_{k,i} = 2\pi/N_i\Delta_i
+   \end{equation}
+is the pixel size in Fourier space and $\Delta_{{\rm vol}\,k} = \prod_i \Delta_{k,i}$ is the volume of a Fourier pixel.
+
+Similarly, the inverse Fourier transform is approximated as
+\begin{equation}
+   B_i(\mathbf{x}) = \int \frac{d^3k}{(2\pi)^3} \exp(i \mathbf{k \cdot x}) B_i(\mathbf{k}) = \frac{\Delta_{{\rm vol}\, k}}{(2\pi)^3} \sum_{\rm{index}\ \mathbf{p}} \exp(2\pi i \mathbf{p}\cdot (\mathbf{n/N}) ) B_i(\mathbf{k_p})
+ \end{equation}
+ and the sum is a standard inverse FFT.  (Note: $\Delta_{{\rm vol}}\Delta_{{\rm vol}\,k}/(2\pi)^3 = 1/N$, and counters the factor $N$ renormalization that occurs from successive forward-backward FFTs.)
+
+
+On the discrete grid, the harmonic space $\delta$-function is approximated at $\delta(\mathbf{k-k'}) = \delta_\mathbf{pp'} / \Delta_{{\rm vol}\, k}$.  (It integrates to unity over that single pixel.)
+
+\section{Generating a stochastic field with specified spectrum}
+
+At every Fourier pixel $\mathbf{p}$, generate a 3-vector of independent, complex Gaussian deviates with unit variance
+\begin{eqnarray}
+  {\rm Re}(g_i(\mathbf{p})) \sim {\cal N}(\mu = 0, \sigma^2 = 1/2) \\ \nonumber
+  {\rm Im}(g_i(\mathbf{p})) \sim {\cal N}(\mu = 0, \sigma^2 = 1/2)  
+\end{eqnarray}
+(We have to be careful for the $\mathbf{p} = 0$ mode which has no imaginary part, so the real part needs unit variance.)
+
+Thus the covariance of these independent deviates is
+\begin{equation}
+  \langle g_i(\mathbf{p}) g_j^*(\mathbf{p}') \rangle = \delta_{ij} \delta_\mathbf{pp'}
+\end{equation}
+Then we assign the magnetic field modes as
+\begin{equation}
+  B_i (\mathbf{k_p}) = \left[ \frac{(2\pi)^3 P(k)}{\Delta_{{\rm vol}\,k}} \right]^{1/2} P_{il}(\mathbf{k_p}) g_l(\mathbf{p})
+\end{equation}
+Thus the covariance of modes is what we expect on the discrete grid:
+\begin{eqnarray}
+  \langle B_i(\mathbf{k_p}) B^*_j(\mathbf{k_{p'}}) \rangle &=&   \left[ \frac{(2\pi)^3 P(k)}{\Delta_{{\rm vol}\,k}} \right] P_{il}(\mathbf{k_p}) \left\langle g_l(p) g^*_m(\mathbf{p'}) \right\rangle P_{mj}(\mathbf{k_{p'}}) \\ \nonumber
+  &=&   {(2\pi)^3 P(k)}  P_{il}(\mathbf{k_p}) \delta_{lm} \delta_{\mathbf{pp}'} P_{lm}(\mathbf{k_p})/{\Delta_{{\rm vol}\,k}} \\ \nonumber
+  &=&  {(2\pi)^3 P(k)}  P_{ij}(\mathbf{k_p}) \delta_{\mathbf{pp}'}/{\Delta_{{\rm vol}\,k}}
+\end{eqnarray}
+where the last equality uses the idempotent property from Equation~\ref{eqn:idemproj}.
+with the Kronecker $\delta$ over the pixel volume standing in for the Dirac delta function from Equation~\ref{eqn:psdef}.
+
+We can test the divergence of the magnetic field in Fourier space, and find that it is zero:
+\begin{equation}
+  k_i B_i \propto k_i P_{il} g_l = k \hat k_i P_{il} g_l = 0.
+\end{equation}
+by Equation \ref{eqn:transproj}.
+
+Thus we have shown that this definition for the magnetic field modes is both divergence free and has the specified power spectrum.  We obtain the real-space field via an inverse Fourier transform.
+
+\section{Evaluating the power spectrum}
+
+The projection operator $P_{ij}$ eliminates longitudinal modes and so does not in general have an inverse.
+
+We can make use of the following fact to make an estimate of the power spectrum.
+\begin{equation}
+P_{ji} \langle B_i(\mathbf{k_p}) B^*_j(\mathbf{k_{p}}) \rangle =  {(2\pi)^3 P(k)}  P_{jj}(\mathbf{k_p})/{\Delta_{{\rm vol}\,k}}
+\end{equation}
+
+
+We can make an estimate for the power spectrum P(k) by contracting Fourier modes with the projection operator and dividing out the trace of the projection.
+\begin{equation}
+  \bar P(k_1 <k < k_2) = \frac{\Delta_{{\rm vol}\,k}}{(2\pi)^3 }  \frac{\sum_{ \mathbf{p}} P_{ji}(\mathbf{k_p}) B_i(\mathbf{k_p}) B^*_j(\mathbf{k_p}) }{\sum_{ \mathbf{p}} P_{jj}(\mathbf{k_p)}}
+\end{equation}
+where the sum is over Fourier pixels $\mathbf{p}$ within the band  ($ k_1 < |\mathbf{k_p}|<k_2$).  It is normalized by the trace of the projection operator, the number of such pixels, and the volume of the grid cell in Fourier space.
+
+Alternatively, to estimate a band power for estimate for the power spectrum $P(k)$ from a pair of magnetic field components $(ij)$, we can use
+\begin{equation}
+\bar P_{(ij)}(k_1 <k < k_2) = \frac{\Delta_{{\rm vol}\,k}}{(2\pi)^3}  \frac{ \sum_{\mathbf{p}} {\rm Re}(B_i(\mathbf{p}) B^*_j(\mathbf{p})) }{ \sum_{\mathbf{p}} P_{ij}(\mathbf{p)}}
+\end{equation}
+where the sum is over Fourier pixels $p$ within the band for which the projection operator is not zero.  It is normalized by the number of such pixels and the volume of the grid cell in Fourier space.
+The power estimates from the $(ij)$ components can be further averaged if desired.
+
+
+\bibliography{ref}
+\bibliographystyle{apsrev}
+
+\end{document}
