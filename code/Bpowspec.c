@@ -42,13 +42,115 @@ void Bpowspec_build_projector(double P[9], double khat[3]){
 
 }
 
-
 void Bpowspec_Pk2harm(gsl_spline *Pk, fftw_complex *harmx, fftw_complex *harmy, fftw_complex *harmz, int N[3], double kmax, double Deltak[3], gsl_rng *r) {
   // Based on a spline-interpolated power spectrum, return fourier space coefficients for the three components of the magnetic field
   // These are arrange in preparation for a c2r transform to a volume of size N[3].
   // N[] = Nz, Ny, Nx
   // Note that vectors ik, kvec, and khat (and thus the projection matrix Proj) also follow the zyx order.
 
+  /////////////////////////////////////////////////////////////
+  //
+  // This version uses the complex-to-real symmetry corrected version of lsstools_Pk2harm().
+  // There remains some problem with the modes with Nyquist-frequency modes (iz,iy,ix=N/2).
+  // To deal with this, these modes are currently set to zero, and so this should be used with a
+  // power spectrum that falls to zero by the Nyquist frequency in any direction.
+  //
+  /////////////////////////////////////////////////////////////
+  
+  
+  int ix,iy,iz,p,ik[3],idim,jdim;
+
+  double kvec[3],khat[3],Proj[9];
+  double k;
+  int Nhalfx = N[2]/2+1;
+
+  fftw_complex tmpharm[3],tmpBharm[3];
+
+  //  Make original uncorrelated fields
+  lsstools_Pk2harm(Pk, harmx, N, kmax, Deltak, r);
+  lsstools_Pk2harm(Pk, harmy, N, kmax, Deltak, r);
+  lsstools_Pk2harm(Pk, harmz, N, kmax, Deltak, r);
+
+
+  // loop over modes and project out logitudinal component
+  for (iz=0;iz<N[0];iz++) {
+    for (iy=0;iy<N[1];iy++) {
+      for (ix=0;ix<Nhalfx;ix++) {
+	p = iz*N[1]*Nhalfx+iy*Nhalfx+ix;
+	
+	ik[0] = (iz<=N[0]/2) ? iz : iz-N[0];
+	ik[1] = (iy<=N[1]/2) ? iy : iy-N[1];
+	ik[2] = ix;
+
+	if ( (iz==N[0]/2) ||
+	     (iy==N[1]/2) ||
+	     (ix==N[2]/2) ) {
+	  harmz[p] = 0.0;
+	  harmy[p] = 0.0;
+	  harmx[p] = 0.0;
+	} else {
+	
+	  k = 0;
+	  for (idim = 0;idim < 3;idim++) {
+	    kvec[idim] = Deltak[idim]*ik[idim];
+	    k += kvec[idim]*kvec[idim];
+	  }
+	  k = sqrt(k);
+	  
+	  if (k>0.0) {
+	    
+	    for (idim = 0;idim < 3;idim++) {
+	      khat[idim] = kvec[idim]/k;
+	    }
+	    
+	    Bpowspec_build_projector(Proj,khat);
+	  } else {
+	    
+	    for (idim = 0;idim < 9;idim++) {
+	      Proj[idim] = 0.0;
+	    }
+	    for (idim = 0;idim < 3;idim++) {
+	      Proj[idim*3+idim] = 1.0;
+	    }
+	    
+	  }
+	  
+	  
+	  tmpharm[0] = harmz[p];
+	  tmpharm[1] = harmy[p];
+	  tmpharm[2] = harmx[p];
+	  
+	  for (jdim = 0;jdim < 3;jdim++) {
+	    tmpBharm[jdim] = 0.;
+	    for (idim = 0;idim < 3;idim++) {
+	      tmpBharm[jdim] += Proj[jdim*3+idim]*tmpharm[idim];
+	    }
+	  }
+	
+	  // Load into outputs, note the order zyx
+	  harmz[p] = tmpBharm[0];
+	  harmy[p] = tmpBharm[1];
+	  harmx[p] = tmpBharm[2];
+	}
+	
+      }
+    }
+  }
+
+}
+  
+void Bpowspec_Pk2harm_old(gsl_spline *Pk, fftw_complex *harmx, fftw_complex *harmy, fftw_complex *harmz, int N[3], double kmax, double Deltak[3], gsl_rng *r) {
+  // Based on a spline-interpolated power spectrum, return fourier space coefficients for the three components of the magnetic field
+  // These are arrange in preparation for a c2r transform to a volume of size N[3].
+  // N[] = Nz, Ny, Nx
+  // Note that vectors ik, kvec, and khat (and thus the projection matrix Proj) also follow the zyx order.
+
+  ////////////////// WARNING ////////////////////////////////////////////////////////////
+  //
+  // This does not enforce the symmetries needed  for a complex2real transform and this leads to a loss
+  // power at large scales.
+  //
+  /////////////////////////////////////////////////////////////////////////////////
   
   int ix,iy,iz,p,ik[3],idim,jdim;
   gsl_interp_accel *acc = gsl_interp_accel_alloc();
@@ -66,8 +168,8 @@ void Bpowspec_Pk2harm(gsl_spline *Pk, fftw_complex *harmx, fftw_complex *harmy, 
       for (ix=0;ix<Nhalfx;ix++) {
 	p = iz*N[1]*Nhalfx+iy*Nhalfx+ix;
 	
-	ik[0] = (iz<N[0]/2) ? iz : iz-N[0];
-	ik[1] = (iy<N[1]/2) ? iy : iy-N[1];
+	ik[0] = (iz<=N[0]/2) ? iz : iz-N[0];
+	ik[1] = (iy<=N[1]/2) ? iy : iy-N[1];
 	ik[2] = ix;
 	
 	k = 0;
@@ -166,8 +268,8 @@ void Bpowspec_harm2Pk(fftw_complex *harmx, fftw_complex *harmy, fftw_complex *ha
       for (ix=0;ix<Nhalfx;ix++) {
 	p = iz*N[1]*Nhalfx+iy*Nhalfx+ix;
 	
-	ik[0] = (iz<N[0]/2) ? iz : iz-N[0];
-	ik[1] = (iy<N[1]/2) ? iy : iy-N[1];
+	ik[0] = (iz<=N[0]/2) ? iz : iz-N[0];
+	ik[1] = (iy<=N[1]/2) ? iy : iy-N[1];
 	ik[2] = ix;
 	
 	k = 0;
@@ -398,7 +500,7 @@ void lsstools_harm2Pk(fftw_complex *harm, gsl_histogram *Pkobs, int N[3], double
   gsl_histogram_scale(Pkobs,Dvolk/pow(2.0*M_PI,3));
 
   int i;
-  for ( i=0; i < count->n; i++) {
+  for ( i=0; i < (int) count->n; i++) {
     if ( count->bin[i] > 0 ) {
       Pkobs->bin[i] /= count->bin[i];
     }

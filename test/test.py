@@ -38,7 +38,7 @@ plot(k,Pk)
 xlabel('k')
 ylabel('P(k)')
 
-seed = 1233
+seed = 1233453
 
 
 kx,ky,kz = Bpowspec.kvecs(N,Deltak)
@@ -75,7 +75,7 @@ kobs = kobsbin[:-1] + diff(kobsbin)/2.
 figure(1)
 step(kobs,Pkobs,where='mid',label='though map')
 step(kobs,Pkobs2,where='mid',label='direct harm')
-
+legend()
 
 figure(2)
 imshow(Bz[0])
