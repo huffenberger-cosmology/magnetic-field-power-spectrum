@@ -1,7 +1,3 @@
-import sys
-
-sys.path.append(".")
-
 import Bpowspec
 from pylab import *
 
