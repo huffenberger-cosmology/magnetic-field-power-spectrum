@@ -1,3 +1,11 @@
+# latex auxilliary files
+*.aux
+*.bbl
+*.blg
+*.out
+
+
+
 # emacs save files
 *~
 
